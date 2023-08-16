@@ -52,7 +52,7 @@ public class App {
 
     private static final String DB_URL = "jdbc:mysql://localhost:3306/gui_system";
     private static final String DB_USERNAME = "root";
-    private static final String DB_PASSWORD = "1234";
+    private static final String DB_PASSWORD = "";
     private static String memberNumber;
     private static String phoneNumber;
     
@@ -531,7 +531,7 @@ public class App {
             
             
             // Check the totalmoney in the deposit table
-            String totalMoneySql = "SELECT SUM(amount_deposited) AS totalmoney FROM available_deposits";
+            String totalMoneySql = "SELECT totalmoney FROM saccoaccount";
             PreparedStatement totalMoneyStatement = connection.prepareStatement(totalMoneySql);
             ResultSet totalMoneyResultSet = totalMoneyStatement.executeQuery();
             int totalMoney = 0;
@@ -731,7 +731,7 @@ private static String generateApplicationNumber() {
                 return status;
 
                 }else{
-
+         
                     resultSet.close();
                   statement.close();
                    connection.close();
@@ -825,6 +825,18 @@ private static String generateApplicationNumber() {
                 updateStatement.setString(2, recomMemberNum);
                 updateStatement.executeUpdate();
                 updateStatement.close();
+
+                String updateTotalMoneySql = "UPDATE saccoaccount SET totalmoney = totalmoney + ?";
+
+                try (PreparedStatement updateTotalStatement = connection.prepareStatement(updateTotalMoneySql)) {
+                    updateTotalStatement.setInt(1, recommendedAmount); // Set the deposit amount here
+                
+                    updateTotalStatement.executeUpdate();
+                } catch (SQLException e) {
+                    // Handle the exception
+                    e.printStackTrace();
+                }
+                    
                 return "Your loan payment period starts at :" + formattedDate;
         }else{
             System.out.println(memberNumber);
@@ -887,6 +899,7 @@ private static String generateApplicationNumber() {
             
             double myPerformance = calculateLoanPerformance(memberNumber);
             double contributionPerformance = calculateContributionPerformance(memberNumber);
+            double SaccoPerformance = calculateSaccoPerformance(dateFrom,dateTo);
     
             responses.add("            Contributions      ");
             while (contributionResult.next()) {
@@ -909,16 +922,17 @@ private static String generateApplicationNumber() {
                 
                 // Build the response for each record
                 StringBuilder response = new StringBuilder();
-                response.append("         Loans    ").append("\n");
+               
                 response.append("Date: ").append(loanDate).append(", ");
                 response.append("Amount : ").append(amount).append(", ");
                 response.append("Status : ").append(status);
                 responses.add(response.toString());
             }
             responses.add("           -------------------------");
-            responses.add("Performance: " + myPerformance + " %");
-            responses.add("Contribution performance: " + contributionPerformance + " %");
-    
+            responses.add("             Performance      ");
+            responses.add("Percentage loan progress: " + myPerformance + " %");
+            responses.add("Percentage contribution progress: " + contributionPerformance + " %");
+            responses.add("Sacco performance: " + SaccoPerformance + " %");
             contributionResult.close();
             contributionStatement.close();
             loanResult.close();
@@ -962,7 +976,13 @@ private static String generateApplicationNumber() {
                 if (result.next()) {
                     int paymentPeriod = result.getInt("paymentPeriod");
                     // Calculate loan performance with double precision
-                    loanPerformance = (((double) amountPaid /((double) amount / paymentPeriod) ) / months) * 100;
+                    if (amountPaid ==0) {
+                        loanPerformance =0.00;
+                        
+                    } else {
+                         loanPerformance = (((double) amountPaid /((double) amount / paymentPeriod) ) / months) * 100;
+                    }
+                   
                 }
         
                 selectStatement.close();
@@ -1045,6 +1065,55 @@ private static String generateApplicationNumber() {
     }
     return amountAllowed;
 }
+
+
+  private static double calculateSaccoPerformance(String dateFrom, String dateTo) {
+        double saccoPerformance = 0.0; // Initialize the loan performance
+
+        try {
+            Connection connection = DriverManager.getConnection(DB_URL, DB_USERNAME, DB_PASSWORD);
+        
+            String sql = "SELECT SUM(amount_deposited) as totalDeposits FROM available_deposits  WHERE deposit_date BETWEEN ? AND ?";
+            PreparedStatement statement = connection.prepareStatement(sql);
+            statement.setString(1, dateFrom);
+             statement.setString(2, dateTo);
+            ResultSet resultSet = statement.executeQuery();
+        
+            if (resultSet.next()) {
+                int totalDeposits = resultSet.getInt("totalDeposits");
+                System.out.println(totalDeposits);
+        
+                String selectSql = "SELECT SUM(amount) as totalLoans FROM loandetails WHERE startDate BETWEEN ? AND ?";
+                PreparedStatement selectStatement = connection.prepareStatement(selectSql);
+                selectStatement.setString(1, dateFrom);
+                selectStatement.setString(2, dateTo);
+                ResultSet result = selectStatement.executeQuery();
+        
+                if (result.next()) {
+                    int totalLoans = result.getInt("totalLoans");
+                    System.out.println(totalLoans);
+                    // Calculate loan performance with double precision
+                         saccoPerformance = (( (double)totalDeposits - (double)totalLoans) / (double)totalDeposits) * 100;
+                    
+                   
+                }
+        
+                selectStatement.close();
+            } else {
+                saccoPerformance = 0.00;
+            }
+        
+            statement.close();
+            connection.close();
+        
+        } catch (SQLException e) {
+            e.printStackTrace();
+            // You might want to handle the exception more gracefully here
+        }
+        
+        return saccoPerformance;
+        
+    }
     
     
 }
