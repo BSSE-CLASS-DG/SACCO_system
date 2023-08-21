@@ -9,5 +9,6 @@
         "exclude": [
             "c:\\Users\\ndjek\\OneDrive\\Desktop\\mysql-connector-j-8.0.33.jar"
         ]
-    }
+    },
+    "git.ignoreLimitWarning": true
 }
