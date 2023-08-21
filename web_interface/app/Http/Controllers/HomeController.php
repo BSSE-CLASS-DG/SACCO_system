@@ -17,12 +17,13 @@ class HomeController extends Controller
     }
 
     /**
-     * Show the application dashboard.
+     * 
      *
      * @return \Illuminate\Contracts\Support\Renderable
      */
     public function index()
     {
+        $this->middleware('nocache');
         return view('dashboard');
     }
 }

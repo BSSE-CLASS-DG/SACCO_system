@@ -14,6 +14,7 @@ class PageController extends Controller
     public function index($page)
     {
         if (view()->exists("pages.{$page}")) {
+            $this->middleware('nocache');
             return view("pages.{$page}");
         }
         return abort(404);

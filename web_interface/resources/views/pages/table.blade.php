@@ -4,7 +4,7 @@
     <div class="content">
         <div class="container-fluid">
             <div class="row">
-                <div class="col-md-12">
+                <div class="col-md-12"  style="padding-right:200px; padding-left:200px; width:70%; margin:auto;">
                     <div class="card strpied-tabled-with-hover">
                         <div class="card-header ">
                             <h4 class="card-title">Pending Requests</h4>
@@ -103,10 +103,10 @@
         </div>
     </div>
 </div>
-                <div class="col-md-12">
+                <div class="col-md-12"    style="padding-right:200px; padding-left:200px; width:70%; margin:auto;">
                     <div class="card card-plain table-plain-bg">
                         <div class="card-header ">
-                            <h4 class="card-title">Recommanded Loans</h4>
+                            <h4 class="card-title">Recommended Loans</h4>
                             <p class="card-category">Waiting to be approved</p>
                         </div>
                         <div class="card-body table-full-width table-responsive">

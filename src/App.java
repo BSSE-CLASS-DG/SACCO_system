@@ -11,6 +11,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Random;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.Period;
 import java.util.Date;
 import java.util.List;
 import java.util.ArrayList;
@@ -108,9 +110,10 @@ public class App {
             return "Invalid command";
             
         }
-        if (tokens.length == 2 && (tokens[0].length())<15) {
+        if (tokens.length == 2 &&  Character.isDigit(tokens[0].charAt(1))) {
             return provideReference(tokens);
         }
+        
         
         
         
@@ -135,20 +138,22 @@ public class App {
                 return performDeposit(amountDeposited, receiptNumber,dateDeposited);
             case "requestLoan":
                 // Perform loan request action
-                if (tokens.length < 4) {
+                if (tokens.length < 3) {
                     return "Invalid loan request";
-                }
-                int requestedAmount = Integer.parseInt(tokens[1]);
-                int paymentPeriod = Integer.parseInt(tokens[2]);
-                String memNum = tokens[3];
-                if (!memNum.equals(memberNumber)){
-                    System.out.println(memberNumber);
-                    System.out.println(memNum);
-                    return "Please enter your member number";
                 }else{
-                    return performLoanRequest(requestedAmount, paymentPeriod, memNum);
+                     int requestedAmount = Integer.parseInt(tokens[1]);
+                int paymentPeriod = Integer.parseInt(tokens[2]);
+                 return performLoanRequest(requestedAmount, paymentPeriod);
                 }
+             case "checkReference":
+                // Perform loan request action
+                if (tokens.length < 2) {
+                    return "Invalid reference request";
+                }else{
+                     int referenceNumber = Integer.parseInt(tokens[1]);
                 
+                 return checkReference(referenceNumber);
+                }    
              case "checkLoanStatus":
                 // Perform loan request action
                 if (tokens.length < 2) {
@@ -178,7 +183,7 @@ public class App {
     private static String provideReference(String[] tokens) {
         // Assuming the first element is the memberNumber and the second element is the phoneNumber
         if (tokens.length < 2) {
-            return "Invalid integer-based request. Both memberNumber and phoneNumber are required.";
+            return "Invalid integer-based request.\n Both memberNumber and phoneNumber are required.";
         }
     
         String memberNumber = tokens[0];
@@ -234,7 +239,7 @@ public class App {
                  String referenceNumber = generateRandomReferenceNumber();
                  insertIntoReferences(connection, memberNumber, phoneNumber, referenceNumber);
                 connection.close();
-                return "Invalid member number or phone number. Your reference number is " + referenceNumber +" Come back with it for follow up";
+                return "Invalid member number or phone number.\n Your reference number is " + referenceNumber +" \n Come back with it for follow up";
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -283,6 +288,7 @@ public class App {
 
             // Execute the query
             ResultSet resultSet = statement.executeQuery();
+            double progress = calculateContributionPerformance(memberNumber);
 
             if (resultSet.next()) {
                 // Login successful
@@ -293,7 +299,12 @@ public class App {
                 statement.close();
                 connection.close();
                  System.out.println("Correct credentials");
-                return "Login successful";
+                 if (progress <50){
+                    return "Login successful" + " Warning!!!!!!!" + " Your contribution progress is less than 50";
+                 }else{
+                      return "Login successful";
+                 }
+              
                
             } else {
                 // Invalid username or password
@@ -316,18 +327,26 @@ public class App {
             Connection connection = DriverManager.getConnection(DB_URL, DB_USERNAME, DB_PASSWORD);
     
             // Check if the member has an unpaid loan or balance
-            String sql = "SELECT * FROM available_deposits WHERE receipt_number = ? AND deposit_date = ? AND amount_deposited >= ?";
+            String sql = "SELECT * FROM available_deposits WHERE receipt_number = ? AND deposit_date = ? AND amount_deposited >= ? AND status = ?";
 
             PreparedStatement statement = connection.prepareStatement(sql);
 
             statement.setString(1, receiptNumber);
             statement.setString(2, dateDeposited);
             statement.setInt(3,amountDeposited);
+            statement.setString(4, "pending");
     
             // Execute the query
             ResultSet resultSet = statement.executeQuery();
            if (resultSet.next()) {
-              resultSet.close();
+
+            String updateSql = "UPDATE available_deposits SET status = ? WHERE receipt_number = ?";
+                    PreparedStatement updateStatement = connection.prepareStatement(updateSql);
+                   updateStatement.setString(1, "verified");
+                   updateStatement.setString(2, receiptNumber);
+                    updateStatement.executeUpdate();
+                    updateStatement.close();
+                 resultSet.close();
                 statement.close();
                 connection.close();
                 return allocateFunds( amountDeposited);
@@ -347,6 +366,43 @@ public class App {
     }
 
 
+         private static String checkReference(  int referenceNumber) {
+        try {
+            // Establish a connection to the database
+            Connection connection = DriverManager.getConnection(DB_URL, DB_USERNAME, DB_PASSWORD);
+    
+            // Check if the member has an unpaid loan or balance
+            String sql = "SELECT * FROM reference WHERE referenceNumber = ? AND memberNumber = ?";
+
+            PreparedStatement statement = connection.prepareStatement(sql);
+
+            statement.setInt(1, referenceNumber);
+            statement.setString(2, memberNumber);
+            
+    
+            // Execute the query
+            ResultSet resultSet = statement.executeQuery();
+           if (resultSet.next()) {
+
+               String response = resultSet.getString("response");
+              resultSet.close();
+                statement.close();
+                connection.close();
+                return response;
+           }else{
+                resultSet.close();
+                statement.close();
+                connection.close();
+           }
+
+                return "This reference number has expired";
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return "Database error";
+        }
+    }
+    
+
     private static String allocateFunds( int amountDeposited) {
         String response = ""; // Initialize the response
     
@@ -365,8 +421,7 @@ public class App {
                 int amount = resultSet.getInt("amount");
                 int amountPaid = resultSet.getInt("amountPaid");
                 int amountLeft = amount - amountPaid;
-                System.out.println(amount);
-                System.out.println(amountPaid);
+                
     
                 if (amount == amountPaid) {
                     String insertSql = "INSERT INTO contributions (memberNumber, amount, date) VALUES (?, ?, ?)";
@@ -377,7 +432,7 @@ public class App {
                     statement2.executeUpdate();
                     statement2.close();
     
-                    response = "Your deposit was received and the money is sent to contributions";
+                    response = "Your deposit was received and the money is transfered to contributions";
     
                 } else if (amountDeposited > amountLeft) {
                     int amountRemaining = amountDeposited - amountLeft;
@@ -397,7 +452,7 @@ public class App {
                     updateStatement.executeUpdate();
                     updateStatement.close();
     
-                    response = "Loan cleared and remaining amount sent to contributions";
+                    response = "Loan cleared and remaining amount is transfered to contributions";
     
                 } else {
                     String updateSql = "UPDATE loanpayment SET amountPaid = ? WHERE memberNumber = ?";
@@ -419,7 +474,7 @@ public class App {
                 statement2.executeUpdate();
                 statement2.close();
     
-                response = "Your deposit was received and the money is sent to contributions";
+                response = "Your deposit was received and the money is transfered to contributions";
             }
     
             statement.close();
@@ -456,7 +511,7 @@ public class App {
     
     
     
-    private static String performLoanRequest(int loanAmount, int paymentPeriod, String memberNumber) {
+    private static String performLoanRequest(int loanAmount, int paymentPeriod) {
         try {
             // Establish a connection to the database
             Connection connection = DriverManager.getConnection(DB_URL, DB_USERNAME, DB_PASSWORD);
@@ -480,7 +535,7 @@ public class App {
             
             
             // Check the totalmoney in the deposit table
-            String totalMoneySql = "SELECT SUM(amount_deposited) AS totalmoney FROM available_deposits";
+            String totalMoneySql = "SELECT totalmoney FROM saccoaccount";
             PreparedStatement totalMoneyStatement = connection.prepareStatement(totalMoneySql);
             ResultSet totalMoneyResultSet = totalMoneyStatement.executeQuery();
             int totalMoney = 0;
@@ -488,9 +543,8 @@ public class App {
             while (totalMoneyResultSet.next()) {
                 totalMoney = totalMoneyResultSet.getInt("totalmoney");
             }
-            System.out.println(loanRequestCount);
-            System.out.println(totalLoan);
-            System.out.println(totalMoney);
+            
+           
             loanRequestCount = applicationNumbers.size();
             if (loanRequestCount == 10 ) {
                 // Distribute the totalmoney equally among the applicants
@@ -542,9 +596,9 @@ public class App {
                     insertStatement.close();
 
                     }
-                
+
                     
-               
+            
                 }
                 
                 loanResultSet.close();
@@ -560,7 +614,47 @@ public class App {
                 }
                
             } else {
-                // Insert the loan request into the database
+               
+                double amountLevel = calculateTotalContribution(memberNumber);
+
+                if (amountLevel < loanAmount) {
+                    loanAmount =(int)amountLevel;
+                    if (amountLevel == 0) {
+                        return "We can not give you a loan because you have not contributed";
+                        
+                    }else {
+
+
+                    String applicationNumber = generateApplicationNumber();
+                String sql = "INSERT INTO loanrequests (loanAmount, paymentPeriod, memberNumber, applicationNumber) VALUES (?, ?, ?, ?)";
+                PreparedStatement statement = connection.prepareStatement(sql);
+                statement.setInt(1, loanAmount);
+                statement.setInt(2, paymentPeriod);
+                statement.setString(3, memberNumber);
+                statement.setString(4, applicationNumber);
+                // Execute the insert
+                statement.executeUpdate();
+                statement.close();
+    
+                countResultSet.close();
+                countStatement.close();
+                totalMoneyResultSet.close();
+                totalMoneyStatement.close();
+                connection.close();
+    
+                // Increment the loan request count
+                loanRequestCount++;
+                totalLoan = totalLoan + loanAmount;
+    
+                // Return the loan application number to the user
+                return "The amount requested is greater than 3/4 of your  total contribution. You can only receive " + loanAmount + " Your application number " + applicationNumber;
+
+                    }
+
+
+                    
+                }else {
+                     // Insert the loan request into the database
                 String applicationNumber = generateApplicationNumber();
                 String sql = "INSERT INTO loanrequests (loanAmount, paymentPeriod, memberNumber, applicationNumber) VALUES (?, ?, ?, ?)";
                 PreparedStatement statement = connection.prepareStatement(sql);
@@ -584,6 +678,8 @@ public class App {
     
                 // Return the loan application number to the user
                 return "Loan request processed. Loan application number: " + applicationNumber;
+                }
+               
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -638,7 +734,7 @@ private static String generateApplicationNumber() {
                 return status;
 
                 }else{
-
+         
                     resultSet.close();
                   statement.close();
                    connection.close();
@@ -732,9 +828,21 @@ private static String generateApplicationNumber() {
                 updateStatement.setString(2, recomMemberNum);
                 updateStatement.executeUpdate();
                 updateStatement.close();
+
+                String updateTotalMoneySql = "UPDATE saccoaccount SET totalmoney = totalmoney + ?";
+
+                try (PreparedStatement updateTotalStatement = connection.prepareStatement(updateTotalMoneySql)) {
+                    updateTotalStatement.setInt(1, recommendedAmount); // Set the deposit amount here
+                
+                    updateTotalStatement.executeUpdate();
+                } catch (SQLException e) {
+                    // Handle the exception
+                    e.printStackTrace();
+                }
+                    
                 return "Your loan payment period starts at :" + formattedDate;
         }else{
-            System.out.println(memberNumber);
+            
             return "Loan not found";
         }
             
@@ -770,39 +878,68 @@ private static String generateApplicationNumber() {
      
     private static String performCheckStatement(String dateFrom, String dateTo) {
         List<String> responses = new ArrayList<>();
-    
+        
         try {
             // Establish a connection to the database
             Connection connection = DriverManager.getConnection(DB_URL, DB_USERNAME, DB_PASSWORD);
     
-            // Prepare the SQL statement
-            String sql = "SELECT * FROM available_deposits WHERE member_number = ? AND deposit_date BETWEEN ? AND ? ORDER BY deposit_date";
-            PreparedStatement statement = connection.prepareStatement(sql);
-            statement.setString(1, memberNumber);
-            statement.setString(2, dateFrom);
-            statement.setString(3, dateTo);
+            // Prepare the SQL statements
+            String contributionSql = "SELECT * FROM contributions WHERE memberNumber = ? AND date BETWEEN ? AND ? ORDER BY date";
+            PreparedStatement contributionStatement = connection.prepareStatement(contributionSql);
+            contributionStatement.setString(1, memberNumber);
+            contributionStatement.setString(2, dateFrom);
+            contributionStatement.setString(3, dateTo);
     
-            // Execute the query
-            ResultSet resultSet = statement.executeQuery();
+            String loanSql = "SELECT * FROM loandetails WHERE memberNumber = ? AND startDate BETWEEN ? AND ? ORDER BY startDate";
+            PreparedStatement loanStatement = connection.prepareStatement(loanSql);
+            loanStatement.setString(1, memberNumber);
+            loanStatement.setString(2, dateFrom);
+            loanStatement.setString(3, dateTo);
     
-            while (resultSet.next()) {
+            // Execute the queries
+            ResultSet contributionResult = contributionStatement.executeQuery();
+            ResultSet loanResult = loanStatement.executeQuery();
+            
+            double myPerformance = calculateLoanPerformance(memberNumber);
+            double contributionPerformance = calculateContributionPerformance(memberNumber);
+            double SaccoPerformance = calculateSaccoPerformance();
+    
+            responses.add("            Contributions      ");
+            while (contributionResult.next()) {
                 // Extract relevant data from the ResultSet
-                String depositDate = resultSet.getString("deposit_date");
-                int amountDeposited = resultSet.getInt("amount_deposited");
-                String receiptNumber = resultSet.getString("receipt_number");
-                double MyPerformanace = calculateLoanPerformance(memberNumber);
-    
+                String depositDate = contributionResult.getString("date");
+                int amountDeposited = contributionResult.getInt("amount");
+                
                 // Build the response for each record
                 StringBuilder response = new StringBuilder();
                 response.append("Date: ").append(depositDate).append(", ");
-                response.append("Amount Deposited: ").append(amountDeposited).append(", ");
-                response.append("Receipt Number: ").append(receiptNumber);
+                response.append("Amount : ").append(amountDeposited);
                 responses.add(response.toString());
-                response.append("Performance: ").append(MyPerformanace);
             }
-    
-            resultSet.close();
-            statement.close();
+           responses.add("           -------------------------");
+            responses.add("                 Loans      ");
+            while (loanResult.next()) {
+                String loanDate = loanResult.getString("startDate");
+                int amount = loanResult.getInt("amount");
+                String status = loanResult.getString("status");
+                
+                // Build the response for each record
+                StringBuilder response = new StringBuilder();
+               
+                response.append("Date: ").append(loanDate).append(", ");
+                response.append("Amount : ").append(amount).append(", ");
+                response.append("Status : ").append(status);
+                responses.add(response.toString());
+            }
+            responses.add("           -------------------------");
+            responses.add("             Performance      ");
+            responses.add("Percentage loan progress: " + myPerformance + " %");
+            responses.add("Percentage contribution progress: " + contributionPerformance + " %");
+            responses.add("Sacco performance: " + SaccoPerformance + " %");
+            contributionResult.close();
+            contributionStatement.close();
+            loanResult.close();
+            loanStatement.close();
             connection.close();
     
         } catch (SQLException e) {
@@ -810,10 +947,11 @@ private static String generateApplicationNumber() {
             responses.add("Database error");
         }
     
-        String responseString = String.join("\t", responses); // Concatenate responses with "|"
-        System.out.println(responseString);
+        String responseString = String.join("\t", responses);
+        
         return responseString;
     }
+    
     
 
     private static double calculateLoanPerformance(String memberNum) {
@@ -841,8 +979,13 @@ private static String generateApplicationNumber() {
                 if (result.next()) {
                     int paymentPeriod = result.getInt("paymentPeriod");
                     // Calculate loan performance with double precision
-                    loanPerformance = (((double) amountPaid /((double) amount / paymentPeriod) ) / months) * 100;
-                    System.out.println(loanPerformance);
+                    if (amountPaid ==0) {
+                        loanPerformance =0.00;
+                        
+                    } else {
+                         loanPerformance = (((double) amountPaid /((double) amount / paymentPeriod) ) / months) * 100;
+                    }
+                   
                 }
         
                 selectStatement.close();
@@ -862,7 +1005,139 @@ private static String generateApplicationNumber() {
         
     }
     
+   private static double calculateContributionPerformance(String memberNumber) throws SQLException {
+    double contributionPerformance = 0.0;
+    double targetAmount = 200000000;
+    int contributionPeriod = 12;
+    double monthlyContribution = targetAmount / contributionPeriod;
+    String startDateStr = "2023-06-09";
+    LocalDate startDate = LocalDate.parse(startDateStr); // Parse the start date
+    LocalDate endDate = startDate.plusMonths(12); // Add 12 months to the start date
+    LocalDate currentDate = LocalDate.now();
+    Period period = Period.between(startDate, currentDate);
+    int monthsTracker = period.getYears() * 12 + period.getMonths();
 
+    try {
+        Connection connection = DriverManager.getConnection(DB_URL, DB_USERNAME, DB_PASSWORD);
+        String csql = "SELECT SUM(amount) AS totalContribution FROM contributions WHERE memberNumber = ? AND date BETWEEN ? AND ?";
+        PreparedStatement statement = connection.prepareStatement(csql);
+        statement.setString(1, memberNumber);
+        statement.setString(2, startDateStr);
+        statement.setString(3, endDate.toString()); // Set the end date here
+        ResultSet resultSet = statement.executeQuery();
+
+        if (resultSet.next()) {
+            int amountContributed = resultSet.getInt("totalContribution");
+            double monthsContributedFor = amountContributed / monthlyContribution;
+            contributionPerformance = (monthsContributedFor / (double) monthsTracker) * 100;
+            
+            statement.close();
+            connection.close();
+        } else {
+            contributionPerformance = 0.00;
+        }
+    } catch (SQLException e) {
+        e.printStackTrace();
+    }
+    return contributionPerformance;
+}
+
+
+ private static double calculateTotalContribution(String memberNumber) throws SQLException {
+    double amountAllowed = 0.0;
     
-    
+
+    try {
+        Connection connection = DriverManager.getConnection(DB_URL, DB_USERNAME, DB_PASSWORD);
+        String csql = "SELECT SUM(amount) AS totalContribution FROM contributions WHERE memberNumber = ? ";
+        PreparedStatement statement = connection.prepareStatement(csql);
+        statement.setString(1, memberNumber);
+        ResultSet resultSet = statement.executeQuery();
+
+        if (resultSet.next()) {
+            int totalContrib = resultSet.getInt("totalContribution");
+            amountAllowed = (3*totalContrib)/4;
+            
+            statement.close();
+            connection.close();
+        } else {
+            amountAllowed = 0;
+        }
+    } catch (SQLException e) {
+        e.printStackTrace();
+    }
+    return amountAllowed;
+}
+
+
+ private static double calculateAverageContributionPerformanceForAllMembers() {
+    double totalContributionPerformance = 0.0;
+    int totalMembers = 0;
+
+    try {
+        Connection connection = DriverManager.getConnection(DB_URL, DB_USERNAME, DB_PASSWORD);
+        String sql = "SELECT member_number FROM members";
+        PreparedStatement statement = connection.prepareStatement(sql);
+        ResultSet resultSet = statement.executeQuery();
+
+        while (resultSet.next()) {
+            String memberNo = resultSet.getString("member_number");
+            double contributionPerformance = calculateContributionPerformance(memberNo);
+            totalContributionPerformance += contributionPerformance;
+            totalMembers++;
+        }
+
+        statement.close();
+        connection.close();
+    } catch (SQLException e) {
+        e.printStackTrace();
+    }
+
+    if (totalMembers > 0) {
+        return totalContributionPerformance / totalMembers;
+    } else {
+        return 0.0;
+    }
+}
+ private static double calculateAverageLoanPerformanceForAllMembers() {
+    double totalLoanPerformance = 0.0;
+    int totalMembers = 0;
+
+    try {
+        Connection connection = DriverManager.getConnection(DB_URL, DB_USERNAME, DB_PASSWORD);
+        String sql = "SELECT memberNumber FROM loanpayment";
+        PreparedStatement statement = connection.prepareStatement(sql);
+        ResultSet resultSet = statement.executeQuery();
+
+        while (resultSet.next()) {
+            String memberNo = resultSet.getString("memberNumber");
+            double loanPerformance = calculateContributionPerformance(memberNo);
+            totalLoanPerformance += loanPerformance;
+            totalMembers++;
+        }
+
+        statement.close();
+        connection.close();
+    } catch (SQLException e) {
+        e.printStackTrace();
+    }
+
+    if (totalMembers > 0) {
+        return totalLoanPerformance / totalMembers;
+    } else {
+        return 0.0;
+    }
+}
+private static double calculateSaccoPerformance(){
+      double SaccoPerformance = 0.00;
+    try {
+        System.out.println(calculateAverageContributionPerformanceForAllMembers());
+        System.out.println(calculateAverageLoanPerformanceForAllMembers());
+        SaccoPerformance = calculateAverageContributionPerformanceForAllMembers() + calculateAverageLoanPerformanceForAllMembers();
+    } catch (Exception e) {
+        // TODO: handle exception
+        e.printStackTrace();
+    }
+    return SaccoPerformance;
+}
 }

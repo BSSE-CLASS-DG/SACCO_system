@@ -18,10 +18,22 @@ use App\Http\Controllers\ReferenceController;
 use App\Http\Controllers\ResponseController;
 use App\Http\Controllers\LoanController;
 use App\Http\Controllers\ChartController;
+use App\Http\Controllers\InterestRateController;
+use App\Http\Controllers\SearchController;
+use App\Http\Controllers\ReportController;
+use App\Http\Controllers\ProfileController;
+// routes/web.php
+Route::post('/search',  [SearchController::class, 'search'])->name('search');
+
+Route::patch('/profile/update-picture', [ProfileController::class,'updateProfilePicture'])->name('profile.update.picture');
+
+
+
+Route::post('/update-interest-rate', [InterestRateController::class, 'update'])->name('updateInterestRate');
+Route::post('/send-emails-with-attachment',[ ReportController ::class, 'sendEmailsWithAttachment'])->name('sendEmailsWithAttachment');
 
 
 Route::get('/fetch-chart-data', [ChartController::class, 'fetchChartData'])->name('fetchChartData');
-
 Route::post('/approve-loan/{applicationNumber}', [LoanController::class, 'approveLoan'])->name('approveLoan');
 Route::get('/table', [ReferenceController::class, 'displayData'])->name('page.index');
 Route::post('/save-response', [ResponseController::class, 'saveResponse'])->name('save-response');
@@ -48,7 +60,7 @@ use App\Http\Controllers\DepositsController;
 Route::get('/upload', 'App\Http\Controllers\AvailableDepositsImportController@show');
 Route::post('/upload', 'App\Http\Controllers\AvailableDepositsImportController@upload')->name('upload');
 
-Route::get('/admin/addmembers', 'App\Http\Controllers\MembersController@add_members');
+Route::get('/admin/addmembers', 'App\Http\Controllers\MembersController@add_members')->name('add_members');
 Route::post('/admin/addmembers', 'App\Http\Controllers\MembersController@store_members');
 
 

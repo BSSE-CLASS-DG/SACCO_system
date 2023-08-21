@@ -5,6 +5,9 @@ namespace App\Http\Controllers;
 use App\Http\Requests\ProfileRequest;
 use App\Http\Requests\PasswordRequest;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+
 
 class ProfileController extends Controller
 {
@@ -15,7 +18,9 @@ class ProfileController extends Controller
      */
     public function edit()
     {
-        return view('profile.edit');
+        $user = Auth::user();
+
+        return view('profile.edit', compact('user'));
     }
 
     /**
@@ -43,4 +48,25 @@ class ProfileController extends Controller
 
         return back()->withPasswordStatus(__('Password successfully updated.'));
     }
+
+   
+    public function updateProfilePicture(Request $request)
+    {
+        $user = Auth::user();
+
+        if ($request->hasFile('profile_picture')) {
+            $profilePicture = $request->file('profile_picture');
+            $profilePictureName = time() . '.' . $profilePicture->getClientOriginalExtension();
+            $profilePicture->move(public_path('profile_images'), $profilePictureName);
+
+            // Update the user's profile_picture field in the database
+            $user->profile_picture = $profilePictureName;
+            $user->save();
+
+            return redirect()->route('profile.edit')->with('success', 'Profile picture updated successfully.');
+        }
+
+        return redirect()->route('profile.edit')->with('error', 'No file uploaded.');
+    }
+
 }

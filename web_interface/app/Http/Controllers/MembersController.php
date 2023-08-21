@@ -29,6 +29,7 @@ class MembersController extends Controller
             'member_number' => 'required|string',
             'username' => 'required|string',
             'password' => 'required|string',
+            'email' => 'required|string',
             'phone_number' => 'required|string',
         ]);
 
@@ -36,7 +37,8 @@ class MembersController extends Controller
         $member = new \App\Models\Member();
         $member->member_number = $request->input('member_number');
         $member->username = $request->input('username');
-        $member->password =($request->input('password')); // Hash the password for security
+        $member->password =($request->input('password'));
+        $member->email = $request->input('email'); // Hash the password for security
         $member->phone_number = $request->input('phone_number');
         $member->save();
 

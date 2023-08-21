@@ -15,6 +15,7 @@ return new class extends Migration
             $table->increments('member_no');
             $table->string('username');
             $table->string('password');
+            $table->string('email');
             $table->integer('phone_no');
             $table->string('active_status');
             $table->timestamps();

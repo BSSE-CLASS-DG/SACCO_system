@@ -1,0 +1,16 @@
+/* Add animation styles */
+@keyframes rotateBackground {
+    0% {
+        transform: rotate(0deg) !important;
+    }
+    100% {
+        transform: rotate(360deg) !important;
+    }
+}
+
+/* Apply animation to the body */
+body {
+    animation: rotateBackground 30s infinite linear !important;
+    background-image: url('/image/20230701_221059.png') !important; /* Adjust the path accordingly */
+    background-size: cover !important;
+}

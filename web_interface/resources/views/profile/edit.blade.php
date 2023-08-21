@@ -95,22 +95,29 @@
                             </div>
                             <div class="card-body">
                                 <div class="author">
-                                    <a href="#">
-                                        <img class="avatar border-gray" src="{{ asset('light-bootstrap/img/faces/face-3.jpg') }}" alt="...">
-                                        <h5 class="title">{{ __('Mike Andrew') }}</h5>
-                                    </a>
-                                    <p class="description">
-                                        {{ __('michael24') }}
+                                    <!-- Profile Picture Upload Form -->
+                                    <form method="post" action="{{ route('profile.update.picture') }}" enctype="multipart/form-data">
+                                        @csrf
+                                        @method('patch') <!-- Include this line to indicate the PATCH method -->
+                                        <br><br><br><br><br>
+                                        <h3>Change Profile Picture</h3>
+                                        <input type="file" name="profile_picture" class="form-control-file mb-3">
+                                        <button type="submit" class="btn btn-primary btn-block">{{ __('Upload Picture') }}</button>
+                                    </form>
+                                    
+                                    <!-- User Profile Details -->
+                                    <img class="avatar border-gray" src="{{ asset('profile_images/' . $user->profile_picture) }}" alt="...">
+
+
+
+                                    <h4 class="title">{{ old('name', auth()->user()->name) }}</h4>
+                                    <p class="description" style="font-size: 18px; color: brown;">
+                                        {{ old('email', auth()->user()->email) }}
                                     </p>
                                 </div>
-                                <p class="description text-center">
-                                {{ __(' "Lamborghini Mercy') }}
-                                    <br> {{ __('Your chick she so thirsty') }}
-                                    <br> {{ __('I am in that two seat Lambo') }}
-                                </p>
                             </div>
                             <hr>
-                            <div class="button-container mr-auto ml-auto">
+                            <div class="button-container">
                                 <button href="#" class="btn btn-simple btn-link btn-icon">
                                     <i class="fa fa-facebook-square"></i>
                                 </button>
@@ -123,8 +130,10 @@
                             </div>
                         </div>
                     </div>
-                </div>
+                    
             </div>
         </div>
     </div>
+
+   
 @endsection

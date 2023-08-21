@@ -4,39 +4,54 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\available_deposits;
+use Illuminate\Support\Carbon; // Add a semicolon at the end
+use App\Models\available_deposits; // Add a semicolon at the end
 use Illuminate\Http\Request;
 use App\Models\AvailableDeposit;
 use Illuminate\Support\Facades\DB;
 
-
 class ChartController extends Controller
 {
     public function fetchChartData()
-    {
-        // Fetch the total amount deposited for each month
-        $monthlyDeposits = DB::table('available_deposits')
-            ->select(DB::raw('YEAR(deposit_date) as year, MONTH(deposit_date) as month, SUM(amount_deposited) as total_amount'))
-            ->groupBy('year', 'month')
-            ->orderBy('year')
-            ->orderBy('month')
-            ->get();
-    
-        $labels = [];
-        $amounts = [];
-    
-        foreach ($monthlyDeposits as $deposit) {
-            $monthName = date('F', mktime(0, 0, 0, $deposit->month, 1));
-            $labels[] = $monthName . ' ' . $deposit->year;
-            $amounts[] = $deposit->total_amount;
-        }
-    
-        $chartData = [
-            'labels' => $labels,
-            'amounts' => $amounts,
-        ];
-    
-        return response()->json($chartData);
+{
+    // Fetch data for loans chart
+    $loanData = DB::table('loandetails')
+        ->select(DB::raw('MONTH(startDate) as month, SUM(amount) as total'))
+        ->groupBy(DB::raw('MONTH(startDate)'))
+        ->orderBy(DB::raw('MONTH(startDate)'))
+        ->get();
+
+    $loanMonths = [];
+    $loanAmounts = [];
+
+    foreach ($loanData as $data) {
+        $loanMonths[] = date('F', mktime(0, 0, 0, $data->month, 1));
+        $loanAmounts[] = $data->total;
     }
-    
+
+    // Fetch data for contributions chart
+    $contributionData = DB::table('contributions')
+        ->select(DB::raw('MONTH(date) as month, SUM(amount) as total'))
+        ->groupBy(DB::raw('MONTH(date)'))
+        ->orderBy(DB::raw('MONTH(date)'))
+        ->get();
+
+    $contributionMonths = [];
+    $contributionAmounts = [];
+
+    foreach ($contributionData as $data) {
+        $contributionMonths[] = date('F', mktime(0, 0, 0, $data->month, 1));
+        $contributionAmounts[] = $data->total;
+    }
+
+    $chartData = [
+        'loanMonths' => $loanMonths,
+        'loanAmounts' => $loanAmounts,
+        'contributionMonths' => $contributionMonths,
+        'contributionAmounts' => $contributionAmounts,
+    ];
+
+    return response()->json($chartData);
+}
+
 }
